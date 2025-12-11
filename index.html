@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Prolog Programs Explorer</title>
+	<style>
+		:root{
+			--bg:#ffffff;
+			--text:#0b0b0b;
+			--muted:#676767;
+			--accent:#1a73e8;
+			--panel:#f8f8f8;
+			--border:#e1e1e1;
+			--mono: "Courier New", Courier, monospace;
+		}
+		html,body { height:100%; margin:0; font-family: var(--mono); color:var(--text); background:var(--bg); -webkit-font-smoothing:antialiased; }
+		/* Hero (SWI-Prolog welcome look) */
+		.hero {
+			min-height:100vh; /* full screen */
+			display:flex;
+			align-items:flex-start;
+			justify-content:flex-start;
+			padding:28px 40px 40px 40px;
+			box-sizing:border-box;
+			background:linear-gradient(#fff,#fff); /* subtle white */
+		}
+		.hero .terminal {
+			width:100%;
+			max-width:1100px;
+			background:transparent;
+			border-radius:6px;
+			font-family:var(--mono);
+			white-space:pre-wrap;
+			font-size:15px;
+			color:var(--text);
+			line-height:1.4;
+		}
+		.hero .title { font-weight:700; margin:0 0 8px 0; font-size:16px; color:var(--muted); }
+		.hero small { color:var(--muted); display:block; margin-top:6px; }
+		/* panel below hero */
+		.panel {
+			min-height:60vh;
+			background:var(--panel);
+			padding:28px 40px 80px 40px;
+			box-sizing:border-box;
+			border-top:1px solid var(--border);
+		}
+		.controls {
+			display:flex;
+			gap:12px;
+			align-items:center;
+			margin-bottom:18px;
+		}
+		.file-drop {
+			flex:1;
+			display:flex;
+			align-items:center;
+			justify-content:center;
+			border:2px dashed var(--border);
+			padding:18px;
+			border-radius:8px;
+			background:#fff;
+			min-height:50px;
+		}
+		input[type="file"]{
+			display:none;
+		}
+		button {
+			background:var(--accent);
+			border:none;
+			color:#fff;
+			padding:8px 12px;
+			border-radius:6px;
+			cursor:pointer;
+			font-family:var(--mono);
+			font-size:13px;
+		}
+		button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+		.list {
+			margin-top:18px;
+			max-width:1100px;
+		}
+		.item {
+			border:1px solid var(--border);
+			background:#fff;
+			padding:10px;
+			border-radius:6px;
+			margin-bottom:12px;
+		}
+		.item-header{ display:flex; align-items:center; gap:10px; }
+		.item-name { font-weight:700; }
+		.item-actions { margin-left:auto; display:flex; gap:8px; }
+		details code, pre { font-family:var(--mono); font-size:13px; background:transparent; display:block; padding:12px; white-space:pre; overflow:auto; }
+		details summary { list-style:none; padding:0; cursor:pointer; outline:none; }
+		.copy-note { margin-left:8px; color:var(--muted); font-size:12px; }
+		.small { font-size:13px; color:var(--muted); }
+		/* drag highlight */
+		.file-drop.dragover { border-color:var(--accent); background:#f2fbff; }
+		.btn-link { background:transparent; color:var(--accent); border:1px solid transparent; }
+		.footer-note { margin-top:14px; color:var(--muted); font-size:13px; }
+	</style>
+</head>
+<body>
+	<!-- Top hero covers whole viewport; bottom section is visible on scroll -->
+	<section class="hero" aria-hidden="false">
+		<pre class="terminal" aria-hidden="false">
+Welcome to SWI-Prolog (threaded, 64 bits, version 9.2.9)
+SWI-Prolog comes with ABSOLUTELY NO WARRANTY. This is free software.
+Please run ?- license. for legal details.
+
+For online help and background, visit https://www.swi-prolog.org
+For built-in help, use ?- help(Topic). or ?- apropos(Word).
+
+?- 
+		</pre>
+	</section>
+
+	<section class="panel" id="programsPanel" aria-label="Prolog Programs">
+		<div class="controls">
+			<label class="file-drop" id="dropArea">
+				Click to select .pl files or drop them here
+				<input id="fileInput" type="file" accept=".pl,text/x-prolog,application/x-prolog" multiple webkitdirectory directory />
+			</label>
+			<button id="btnOpen" class="ghost">Choose Files</button>
+			<button id="btnLoadEmbedded" class="btn-link">Load Built-in Programs</button>
+			<button id="btnExpandAll" class="">Expand All</button>
+			<button id="btnCollapseAll" class="ghost">Collapse All</button>
+		</div>
+
+		<div id="status" class="small" aria-live="polite"></div>
+
+		<div class="list" id="list"></div>
+
+		
+	</section>
+
+	<script>
+		(function(){
+			const fileInput = document.getElementById('fileInput');
+			const dropArea = document.getElementById('dropArea');
+			const list = document.getElementById('list');
+			const btnOpen = document.getElementById('btnOpen');
+			const btnLoadEmbedded = document.getElementById('btnLoadEmbedded');
+			const btnExpandAll = document.getElementById('btnExpandAll');
+			const btnCollapseAll = document.getElementById('btnCollapseAll');
+			const status = document.getElementById('status');
+
+			btnOpen.addEventListener('click', () => fileInput.click());
+			fileInput.addEventListener('change', e => handleFiles(e.target.files));
+			btnLoadEmbedded.addEventListener('click', () => { clearList(); loadEmbeddedPrograms(); });
+
+			// Drag / Drop handlers
+			['dragenter','dragover'].forEach(ev => {
+				document.addEventListener(ev, (e) => {
+					e.preventDefault(); e.stopPropagation();
+					dropArea.classList.add('dragover');
+				});
+			});
+			['dragleave','drop'].forEach(ev => {
+				document.addEventListener(ev, (e) => {
+					e.preventDefault(); e.stopPropagation();
+					dropArea.classList.remove('dragover');
+				});
+			});
+			dropArea.addEventListener('drop', (e) => {
+				const dt = e.dataTransfer;
+				if (dt && dt.files && dt.files.length) {
+					handleFiles(dt.files);
+				}
+			});
+
+			// Hardcoded program sources
+			const builtInPrograms = [
+				{
+					name: 'family_tree.pl',
+					text: `% --- Facts based on your input ---
+
+% Gender definitions
+male(aajoba).
+female(aaji).
+male(papa).
+female(aai).
+male(me).
+male(brother).
+
+% Parent relationships
+% Grandparents to Parents
+parent(aajoba, papa).
+parent(aaji, papa).
+
+% Parents to Children
+parent(papa, me).
+parent(papa, brother).
+parent(aai, me).
+parent(aai, brother).
+
+% --- Rules (Logic) from Assignment 4 ---
+
+% X is a grandparent of Y if X is a parent of Z, and Z is a parent of Y
+grandparent(X, Y) :- 
+    parent(X, Z), 
+    parent(Z, Y).
+
+% X and Y are siblings if they share a parent Z and X is not Y
+sibling(X, Y) :- 
+    parent(Z, X), 
+    parent(Z, Y), 
+    X \\= Y.
+
+% X is the father of Y if X is a parent of Y and X is male
+father(X, Y) :- 
+    parent(X, Y), 
+    male(X).
+
+% X is the mother of Y if X is a parent of Y and X is female
+mother(X, Y) :- 
+    parent(X, Y), 
+    female(X).
+
+% X is an ancestor of Y (Recursive definition)
+ancestor(X, Y) :- parent(X, Y).
+ancestor(X, Y) :- parent(X, Z), ancestor(Z, Y).
+
+% X is a descendant of Y
+descendant(X, Y) :- ancestor(Y, X).`
+				},
+				{
+					name: 'hanoi.pl',
+					text: `hanoi(1, Source, Target, _):-
+    write('Move disk 1 from '), write(Source), write(' to '), write(Target), nl.
+
+hanoi(N, Source, Target, Auxiliary):-
+    N > 1, 
+    M is N - 1,
+    hanoi(M, Source, Auxiliary, Target),
+    write('Move disk '), write(N), write(' from '), write(Source), write(' to '), write(Target), nl,
+    hanoi(M, Auxiliary, Target, Source).`
+				},
+				{
+					name: 'puzzle.pl',
+					text: `% ==========================================
+% 8-Puzzle with Depth Limit (Prevents Loops)
+% ==========================================
+
+goal([1,2,3,
+      4,5,6,
+      7,8,0]).
+
+% --- List Helpers ---
+set_elem([_|T], 0, X, [X|T]).
+set_elem([H|T], I, X, [H|R]) :-
+    I > 0, I1 is I - 1, set_elem(T, I1, X, R).
+
+swap(List, I, J, Result) :-
+    nth0(I, List, A), nth0(J, List, B),
+    set_elem(List, I, B, Temp),
+    set_elem(Temp, J, A, Result).
+
+% --- Move Logic ---
+move(State, NextState) :-
+    nth0(Blank, State, 0),
+    move_blank(Blank, NewBlank),
+    swap(State, Blank, NewBlank, NextState).
+
+move_blank(0,1). move_blank(0,3).
+move_blank(1,0). move_blank(1,2). move_blank(1,4).
+move_blank(2,1). move_blank(2,5).
+move_blank(3,0). move_blank(3,4). move_blank(3,6).
+move_blank(4,1). move_blank(4,3). move_blank(4,5). move_blank(4,7).
+move_blank(5,2). move_blank(5,4). move_blank(5,8).
+move_blank(6,3). move_blank(6,7).
+move_blank(7,4). move_blank(7,6). move_blank(7,8).
+move_blank(8,5). move_blank(8,7).
+
+% --- SOLVER (Iterative Deepening) ---
+
+solve(Start) :-
+    % Try to find path of length 1, then 2, then 3... up to 15
+    between(1, 15, Limit),
+    write('Searching with depth limit: '), write(Limit), nl,
+    path(Start, [Start], Limit).
+
+path(State, Visited, _) :-
+    goal(State),
+    write('Goal State Reached!'), nl,
+    print_path(Visited).
+
+path(State, Visited, Limit) :-
+    Limit > 0,
+    move(State, Next),
+    \\+ member(Next, Visited),
+    NewLimit is Limit - 1,
+    path(Next, [Next | Visited], NewLimit).
+
+% --- Print Path in Correct Order ---
+print_path(Visited) :-
+    reverse(Visited, Path),
+    print_steps(Path).
+
+print_steps([]).
+print_steps([H|T]) :-
+    print_state(H),
+    print_steps(T).
+
+print_state([A,B,C,D,E,F,G,H,I]) :-
+    write(A), write(' '), write(B), write(' '), write(C), nl,
+    write(D), write(' '), write(E), write(' '), write(F), nl,
+    write(G), write(' '), write(H), write(' '), write(I), nl,
+    nl.`
+				},
+				{
+					name: 'tic.pl',
+					text: `% Program: Tic-Tac-Toe (tic.pl)
+
+% --- 1. Start Game ---
+play :-
+    initial_board(Board),
+    display_board(Board),
+    write('Game Start! You are X.'), nl,
+    play_turn(Board, x).
+
+initial_board(['-','-','-','-','-','-','-','-','-']).
+
+% --- 2. Display Board ---
+display_board([A,B,C,D,E,F,G,H,I]) :-
+    nl,
+    write(' '), write(A), write(' | '), write(B), write(' | '), write(C), nl,
+    write('---+---+---'), nl,
+    write(' '), write(D), write(' | '), write(E), write(' | '), write(F), nl,
+    write('---+---+---'), nl,
+    write(' '), write(G), write(' | '), write(H), write(' | '), write(I), nl,
+    nl.
+
+% --- 3. Game Logic ---
+
+% Condition: X Wins
+play_turn(Board, x) :-
+    win(x, Board),
+    write('X Wins!'), nl.
+
+% Condition: O Wins
+play_turn(Board, o) :-
+    win(o, Board),
+    write('O Wins!'), nl.
+
+% Condition: Draw
+play_turn(Board, _) :-
+    \\+ member('-', Board),
+    write('It is a Draw!'), nl.
+
+% Turn: X (Human Player)
+play_turn(Board, x) :-
+    write('Enter move (1-9): '),
+    read(Pos),
+    (valid_move(Board, Pos) ->
+        update_board(Board, Pos, x, NewBoard),
+        display_board(NewBoard),
+        play_turn(NewBoard, o)
+    ;
+        write('Invalid move! Try again.'), nl,
+        play_turn(Board, x)
+    ).
+
+% Turn: O (Computer - Simple Random AI)
+play_turn(Board, o) :-
+    write('Computer (O) is thinking...'), nl,
+    move_computer(Board, NewBoard),
+    display_board(NewBoard),
+    play_turn(NewBoard, x).
+
+% --- 4. Helpers ---
+
+% Check if move is valid (spot is empty '-')
+valid_move(Board, Pos) :-
+    nth1(Pos, Board, '-').
+
+% Update the list with the move
+update_board([_|T], 1, Player, [Player|T]).
+update_board([H|T], Pos, Player, [H|Rest]) :-
+    Pos > 1,
+    Pos1 is Pos - 1,
+    update_board(T, Pos1, Player, Rest).
+
+% Computer Logic: Pick the first available empty spot
+move_computer(Board, NewBoard) :-
+    nth1(Pos, Board, '-'),
+    update_board(Board, Pos, o, NewBoard), !.
+
+% --- 5. Winning Conditions ---
+% Rows
+win(P, [P,P,P,_,_,_,_,_,_]).
+win(P, [_,_,_,P,P,P,_,_,_]).
+win(P, [_,_,_,_,_,_,P,P,P]).
+% Columns
+win(P, [P,_,_,P,_,_,P,_,_]).
+win(P, [_,P,_,_,P,_,_,P,_]).
+win(P, [_,_,P,_,_,P,_,_,P]).
+% Diagonals
+win(P, [P,_,_,_,P,_,_,_,P]).
+win(P, [_,_,P,_,P,_,P,_,_]).`
+				},
+				{
+					name: 'water.pl',
+					text: `% Represent state as state(Jug5, Jug3)
+goal(state(4,_)).     % Goal: 4 liters in 5L jug
+% Valid moves
+move(state(X,Y), state(5,Y)) :- X < 5.      
+move(state(X,Y), state(X,3)) :- Y < 3.        
+move(state(X,Y), state(0,Y)) :- X > 0.        
+move(state(X,Y), state(X,0)) :- Y > 0.       
+move(state(X,Y), state(X1,Y1)) :-            
+    X > 0, Y < 3,
+    Transfer is min(X, 3-Y),
+    X1 is X - Transfer,
+    Y1 is Y + Transfer.
+move(state(X,Y), state(X1,Y1)) :-            
+    Y > 0, X < 5,
+    Transfer is min(Y, 5-X),
+    Y1 is Y - Transfer,
+    X1 is X + Transfer.
+% DFS to find solution
+solve(Start) :-
+    dfs(Start, []).
+dfs(State, _) :-
+    goal(State),
+    write('Goal reached: '), write(State), nl, !.
+dfs(State, Visited) :-
+    write('Current state: '), write(State), nl,
+    move(State, Next),
+    \\+ member(Next, Visited),
+    dfs(Next, [State | Visited]).`
+				},
+				{
+					name: 'arith1.pl',
+					text: `% Check if a number is prime
+is_prime(2) :- !.
+is_prime(N) :-
+    N > 2,
+    N mod 2 =\\= 0,
+    \\+ has_odd_divisor(N, 3).
+
+has_odd_divisor(N, D) :-
+    D * D =< N,
+    (N mod D =:= 0 ; D1 is D + 2, has_odd_divisor(N, D1)).
+
+% Find all primes up to N
+primes_up_to(N, Primes) :-
+    findall(X, (between(2, N, X), is_prime(X)), Primes).`
+				},
+				{
+					name: 'arith3.pl',
+					text: `% Program: Count to 10
+
+% Base case: When the number is 10, print it and stop.
+count_to_10(10) :- 
+    write(10), nl.
+
+% Recursive step: Print X, calculate Y = X + 1, then count(Y).
+count_to_10(X) :-
+    write(X), nl,
+    Y is X + 1,
+    count_to_10(Y).`
+				},
+			];
+
+			// Utilities to load, clear, and render
+			function clearList() {
+				list.innerHTML = '';
+			}
+			function loadEmbeddedPrograms() {
+				status.textContent = 'Loading embedded programs...';
+				builtInPrograms.forEach(p => {
+					renderProgram(p.name, p.text);
+				});
+				status.textContent = `Loaded ${builtInPrograms.length} built-in program(s).`;
+			}
+
+			// Keep file input / drag input logic intact
+			function handleFiles(filesList) {
+				if (!filesList || filesList.length === 0) return;
+				const files = Array.from(filesList).filter(f => /\.pl$/i.test(f.name));
+				if (files.length === 0) {
+					alert("No .pl files found. Please select files with .pl extension.");
+					return;
+				}
+				files.forEach(f => readAndRenderFile(f));
+			}
+
+			function readAndRenderFile(file) {
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					renderProgram(file.name, e.target.result, file.size);
+				};
+				reader.readAsText(file, 'utf-8');
+			}
+
+			// New renderer that accepts name, text (and optional size)
+			function renderProgram(name, text, size) {
+				const item = document.createElement('div');
+				item.className = 'item';
+				const kbSize = size ? (size/1024).toFixed(2) : (text.length/1024).toFixed(2);
+				item.innerHTML = `
+					<div class="item-header">
+						<div class="item-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+						<div class="small">(${kbSize} KB)</div>
+						<div class="item-actions">
+							<button class="btnExpand">Expand</button>
+							<button class="btnCopy">Copy</button>
+						</div>
+					</div>
+					<details>
+						<summary class="small">View source</summary>
+						<pre><code></code></pre>
+					</details>
+				`;
+				const codeNode = item.querySelector('code');
+				codeNode.textContent = text;
+				const details = item.querySelector('details');
+				const btnExpand = item.querySelector('.btnExpand');
+				const btnCopy = item.querySelector('.btnCopy');
+				btnExpand.addEventListener('click', () => {
+					details.open = !details.open;
+					btnExpand.textContent = details.open ? 'Collapse' : 'Expand';
+				});
+				btnCopy.addEventListener('click', async () => {
+					try {
+						await navigator.clipboard.writeText(text);
+						btnCopy.textContent = 'Copied';
+						setTimeout(() => btnCopy.textContent = 'Copy', 1200);
+					} catch (err) {
+						const ta = document.createElement('textarea');
+						ta.value = text;
+						document.body.appendChild(ta);
+						ta.select();
+						try { document.execCommand('copy'); btnCopy.textContent = 'Copied'; } catch (e) { alert('Copy failed'); }
+						document.body.removeChild(ta);
+						setTimeout(() => btnCopy.textContent = 'Copy', 1200);
+					}
+				});
+				list.appendChild(item);
+			}
+
+			btnExpandAll.addEventListener('click', () => {
+				Array.from(list.querySelectorAll('details')).forEach(d => d.open = true);
+				Array.from(list.querySelectorAll('.btnExpand')).forEach(b => b.textContent = 'Collapse');
+			});
+			btnCollapseAll.addEventListener('click', () => {
+				Array.from(list.querySelectorAll('details')).forEach(d => d.open = false);
+				Array.from(list.querySelectorAll('.btnExpand')).forEach(b => b.textContent = 'Expand');
+			});
+
+			function escapeHtml(s){ return (s+'').replace(/[&<>"']/g, (c)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]); }
+
+			// Auto-load built-in programs on startup
+			document.addEventListener('DOMContentLoaded', () => {
+				clearList();
+				loadEmbeddedPrograms();
+			});
+		})();
+	</script>
+</body>
+</html>
