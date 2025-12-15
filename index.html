@@ -224,7 +224,15 @@ ancestor(X, Y) :- parent(X, Y).
 ancestor(X, Y) :- parent(X, Z), ancestor(Z, Y).
 
 % X is a descendant of Y
-descendant(X, Y) :- ancestor(Y, X).`
+descendant(X, Y) :- ancestor(Y, X).
+
+% --- Sample Queries ---
+% ?- father(papa, me).
+% ?- mother(aai, brother).
+% ?- sibling(me, brother).
+% ?- grandparent(aajoba, me).
+% ?- ancestor(aajoba, me).
+`
 				},
 				{
 					name: 'hanoi.pl',
@@ -237,7 +245,11 @@ hanoi(N, Source, Target, Auxiliary):-
     M is N - 1,
     hanoi(M, Source, Auxiliary, Target),
     write('Move disk '), write(N), write(' from '), write(Source), write(' to '), write(Target), nl,
-    hanoi(M, Auxiliary, Target, Source).`
+    hanoi(M, Auxiliary, Target, Source).
+	% --- Sample Query ---
+% ?- hanoi(3, left, right, middle).
+
+	`
 				},
 				{
 					name: 'puzzle.pl',
@@ -310,7 +322,11 @@ print_state([A,B,C,D,E,F,G,H,I]) :-
     write(A), write(' '), write(B), write(' '), write(C), nl,
     write(D), write(' '), write(E), write(' '), write(F), nl,
     write(G), write(' '), write(H), write(' '), write(I), nl,
-    nl.`
+    nl.
+	% --- Sample Query ---
+% ?- solve([1,2,3,4,0,6,7,5,8]).
+
+	`
 				},
 				{
 					name: 'tic.pl',
@@ -402,7 +418,11 @@ win(P, [_,P,_,_,P,_,_,P,_]).
 win(P, [_,_,P,_,_,P,_,_,P]).
 % Diagonals
 win(P, [P,_,_,_,P,_,_,_,P]).
-win(P, [_,_,P,_,P,_,P,_,_]).`
+win(P, [_,_,P,_,P,_,P,_,_]).
+% --- Sample Query ---
+% ?- play.
+
+`
 				},
 				{
 					name: 'water.pl',
@@ -434,7 +454,11 @@ dfs(State, Visited) :-
     write('Current state: '), write(State), nl,
     move(State, Next),
     \\+ member(Next, Visited),
-    dfs(Next, [State | Visited]).`
+    dfs(Next, [State | Visited]).
+	% --- Sample Query ---
+% ?- solve(state(0,0)).
+
+	`
 				},
 				{
 					name: 'arith1.pl',
@@ -452,7 +476,13 @@ has_odd_divisor(N, D) :-
 
 % Find all primes up to N
 primes_up_to(N, Primes) :-
-    findall(X, (between(2, N, X), is_prime(X)), Primes).`
+    findall(X, (between(2, N, X), is_prime(X)), Primes).
+
+	% --- Sample Queries ---
+% ?- is_prime(17).
+% ?- primes_up_to(50, L).
+
+	`
 				},
 				{
 					name: 'arith2.pl',
@@ -467,7 +497,13 @@ gcd(A, B, G) :-
 % Calculate LCM
 lcm(A, B, L) :-
     gcd(A, B, G),
-    L is (A * B) // G.`
+    L is (A * B) // G. 
+
+	% --- Sample Queries ---
+% ?- gcd(24, 18, G).
+% ?- lcm(6, 8, L).
+
+	`
 				},
 				{
 					name: 'arith3.pl',
@@ -482,7 +518,11 @@ count_to_10(10) :-
 count_to_10(X) :-
     write(X), nl,
     Y is X + 1,
-    count_to_10(Y).`
+    count_to_10(Y).
+	% --- Sample Query ---
+% ?- count_to_10(1).
+
+	`
 				},
 				{
 					name: 'arith4.pl',
@@ -493,7 +533,13 @@ calc(Operator, X, Y, Result) :-
     Operator = '-', Result is X - Y;
     Operator = '*', Result is X * Y;
     Operator = '/', Y \\= 0, Result is X / Y;
-    Operator = 'mod', Result is X mod Y.`
+    Operator = 'mod', Result is X mod Y.
+	% --- Sample Queries ---
+% ?- calc('+', 5, 3, R).
+% ?- calc('*', 4, 6, R).
+% ?- calc('mod', 10, 3, R).
+
+	`
 				},
 				{
 					name: 'arith5.pl',
@@ -516,7 +562,12 @@ print_fibonacci(N) :-
     N1 is N - 1,
     print_fibonacci(N1),
     fibonacci(N1, F),
-    write(F), write(' '), nl.`
+    write(F), write(' '), nl.
+	% --- Sample Queries ---
+% ?- fibonacci(7, F).
+% ?- print_fibonacci(10).
+
+	`
 				},
 				{
 					name: 'program1.pl',
@@ -530,7 +581,13 @@ like(ram,mango).
 girl(seema).
 red(rose).
 likes(bill,gold).
-owns(john,gold).`
+owns(john,gold).
+% --- Sample Queries ---
+% ?- cat(tom).
+% ?- likes(bill, gold).
+% ?- owns(john, X).
+
+`
 				},
 				{
 					name: 'program2.pl',
@@ -550,7 +607,14 @@ can_cook(priya).
 can_cook(jaya).
 can_cook(tiyasha).
 likes(priya, jaya) :- can_cook(jaya).
-likes(priya, tiyasha) :- can_cook(tiyasha).`
+likes(priya, tiyasha) :- can_cook(tiyasha).
+% --- Sample Queries ---
+% ?- symptom(flu, X).
+% ?- can_cook(priya).
+% ?- likes(priya, X).
+
+
+`
 				},
 				{
 					name: 'program3.pl',
@@ -568,7 +632,13 @@ dog(bulldog).
 cat(bengali).
 dog(dobernmann).
 cat(himalayan).
-cat(singapura).`
+cat(singapura).
+% --- Sample Queries ---
+% ?- happy(ananya).
+% ?- playes_guitar(rohit).
+% ?- dog(X).
+% ?- cat(X).
+`
 				},
 				{
 					name: 'program4.pl',
@@ -588,7 +658,10 @@ at(ceiling,banana),
 under(banana,chair),  
 climb(monkey,chair). 
 canget(banana,monkey):-
-canreach(banana,monkey),grasp(monkey).`
+canreach(banana,monkey),grasp(monkey).
+% --- Sample Query ---
+% ?- canget(banana, monkey).
+`
 				},
 				{
 					name: 'program5.pl',
@@ -597,7 +670,10 @@ factorial(0, 1) :- !.
  factorial(N, F) :- N > 0,
                     N1 is N - 1,
                     factorial(N1, F1),
-                    F is N * F1.`
+                    F is N * F1.
+					% --- Sample Query ---
+% ?- factorial(5, F).
+`
 				},
                 {
 					name: 'banana.pl',
@@ -654,7 +730,10 @@ solve(CurrentState, Visited, [Action | Path]) :-
 print_path([]).
 print_path([Action | Rest]) :-
     write(' -> '), write(Action), nl,
-    print_path(Rest).`
+    print_path(Rest).
+	% --- Sample Query ---
+% ?- solve_problem.
+`
 				},
 				
 			];
